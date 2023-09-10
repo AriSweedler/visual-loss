@@ -1,3 +1,5 @@
+[![Deploy static content to Pages](https://github.com/AriSweedler/visual-loss/actions/workflows/static.yml/badge.svg)](https://github.com/AriSweedler/visual-loss/actions/workflows/static.yml)
+
 # Visual Loss
 
 Helps visualize a loss function. Written with the help of ChatGPT. No libraries used.
