@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Loss</title>
+    <style>
+        #graph {
+            width: 400px;
+            height: 300px;
+            background-color: #eee;
+            position: relative;
+        }
+        #mouse-drawer {
+            position: absolute;
+            top: 0; /* Position div2 on top of div1 */
+            left: 0; /* Position div2 on top of div1 */
+            background-color: transparent;
+        }
+        .canvas {
+            width: 400px;
+            height: 300px;
+            background-color: white;
+            border: 1px solid #ccc;
+        }
+        .point {
+            width: 10px;
+            height: 10px;
+            background-color: blue;
+            position: absolute;
+        }
+        :root {
+            background-color: #eee;
+        }
+        .card {
+            border: 1px solid black;
+            padding: 4em;
+            margin: 1em;
+        }
+        .card-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+    </style>
+</head>
+<body>
+    <span style="display: flex">
+        <div id="graph-container">
+            <div class="card">
+                <span class="card-inner">
+                    <div class="card-inner">
+                        <h1>Graph</h1>
+                        <p>Move your mouse over the graph to change the y-intercept and slope</p>
+                    </div>
+                    <span class="card">
+                        <div id="graph">
+                            <canvas id="graph-drawer" class="canvas" width=400 height=300></canvas>
+                        </div>
+                        <div style="border: 2px solid grey; padding: 2em">
+                            <label for="slope">Slope (m):</label>
+                            <input type="number" id="slope" value="1">
+                            <br>
+                            <label for="intercept">Y-Intercept (b):</label>
+                            <input type="number" id="intercept" value="0">
+                        </div>
+                    </span>
+                </span>
+            </div>
+        </div>
+        <div class="card" style="padding-left: 1em">
+            <span class="card-inner">
+                <h1>Colorized loss function</h1>
+                <p>Red is the best (0 loss), blue is the worst (max loss)</p>
+                <p>If you get super super close, I will paint it black</p>
+                <span class="card" style="display: flex; align-items: center">
+                    <h3 style="padding: 2em">y-intercept</h3>
+                    <span style="display: flex; flex-direction: column; align-items: center; position: relative">
+                        <canvas id="statespace-drawer" class="canvas" width=400 height=300></canvas>
+                        <canvas id="mouse-drawer" class="canvas" width=400 height=300></canvas>
+                        <h3>slope</h3>
+                    </span>
+                </span>
+            </span>
+        </div>
+    </span>
+
+    <script>
+        const canvas = document.getElementById('graph-drawer');
+        const ctx = canvas.getContext('2d');
+        const graph = document.getElementById('graph');
+        const slopeInput = document.getElementById('slope');
+        const interceptInput = document.getElementById('intercept');
+
+        const statespaceCanvas = document.getElementById('statespace-drawer');
+        const statespaceContext = statespaceCanvas.getContext('2d');
+
+        const mouseCanvas = document.getElementById('mouse-drawer');
+        const mouseContext = mouseCanvas.getContext('2d');
+        mouseContext.lineWidth = 2;
+
+
+        // Generate points for the graph and draw them
+        function generatePoints() {
+            const my_points = [];
+            for (let x = 0; x < 400; x += 50) {
+                const y_inv = x / 2;
+                const y = 200 - y_inv;
+                my_points.push([x, y]);
+
+                const point = document.createElement('div');
+                point.classList.add('point');
+                point.style.left = `${x}px`; // Set the X coordinate
+                point.style.top = `${y}px`; // Set the Y coordinate
+
+                // Record them
+                graph.appendChild(point);
+            }
+            return my_points;
+        }
+        const my_points = generatePoints();
+
+        canvas.addEventListener('mousemove', (e) => {
+            const x = e.clientX - canvas.getBoundingClientRect().left;
+            const y = e.clientY - canvas.getBoundingClientRect().top;
+
+            // translate canvas space to slope space
+            // Canvas: 0 to 400
+            // Slope: -1 to 1
+            slopeInput.value = ((x / canvas.width) * 2 - 1).toFixed(2);
+            // translate canvas space to intercept space
+            // Canvas: 0 to 300
+            // Intercept: 0 to 300
+            interceptInput.value = y.toFixed(0);
+
+            // Redraw the graph with updated values
+            paintLine(x, y);
+
+            // Draw the point in state space corresponding to where the mouse is in graph space
+            // Get the total distance from each point to the line. Use all the globals
+            const distance = handle_distance();
+            const max_loss = 1700;
+            let color = getGradientColor(distance, 0, max_loss);
+            if (distance < 20) {
+                color = 'black';
+            }
+            statespaceContext.fillStyle = color;
+            statespaceContext.fillRect(x, y, 10, 10);
+
+            mouseContext.beginPath();
+            mouseContext.arc(x+5, y+5, 6, 0, 2 * Math.PI);
+            mouseContext.clearRect(0, 0, canvas.width, canvas.height);
+            mouseContext.stroke();
+        });
+
+        function handle_distance() {
+            // Calculate distances and log the sum
+            const m = parseFloat(slopeInput.value);
+            const b = parseFloat(interceptInput.value);
+            const distances = my_points.map(point => {
+                const [x, y] = point;
+                const line_y = point_on_line(x, m, b);
+                const dist = Math.abs(line_y - y);
+                return dist
+            });
+            return distances.reduce((acc, curr) => acc + curr, 0);
+        }
+
+        // Get a color based on a value between min and max (interpolate)
+        function getGradientColor(value, min = 0, max = 400) {
+            // Ensure the input value stays within the range [min, max]
+            const clampedValue = Math.max(min, Math.min(max, value));
+
+            // Map the input value to the hue range
+            const percent_hue = (clampedValue) / max;
+            const hue = percent_hue * 255;
+
+            // Create an HSL color string
+            const color = `hsl(${hue}, 100%, 50%)`;
+
+            return color;
+        }
+
+        // Function to draw the line y = mx + b on the canvas
+        function point_on_line(x, m, b) {
+            // Normalize x from between 0 and canvas.width to between -1 and 1
+            const x_norm = (x / canvas.width) * 2 - 1;
+            return b + canvas.width * m/-2 * x_norm;
+        }
+
+        // Function to paint the line
+        function paintLine(mouseX, mouseY) {
+            const m = parseFloat(slopeInput.value);
+            const b = parseFloat(interceptInput.value);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+
+            // Draw the line y = mx + b where the y axis is in the center of the canvas
+            const pts = [0, canvas.width];
+            ctx.moveTo(pts[0], point_on_line(pts[0], m, b));
+            ctx.lineTo(pts[1], point_on_line(pts[1], m, b));
+
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            paintDot(ctx, mouseX, mouseY);
+        }
+
+        function paintDot(ctx, mouseX, mouseY) {
+            // Draw a yellow dot in the middle of the line
+            ctx.fillStyle = 'yellow';
+            const dotY = mouseY;
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, dotY, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw a line from the yellow dot to the mouse cursor with changing color based on the x coordinate
+            const dx = mouseX - canvas.width / 2;
+            const dy = mouseY - dotY;
+
+            const color = getGradientColor(mouseX, 0, canvas.width);
+            ctx.strokeStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, dotY);
+            ctx.lineTo(mouseX, mouseY);
+            ctx.stroke();
+        }
+
+        // Initial drawing
+        paintLine(canvas.width / 2, canvas.height / 2);
+
+        // Redraw when inputs change
+        function calculate_input() {
+            const mouseX = parseFloat(slopeInput.value) * canvas.width / 2 + canvas.width / 2;
+            const mouseY = (1 - parseFloat(interceptInput.value)) * canvas.height / 2 + canvas.height / 2;
+            paintLine(mouseX, mouseY);
+        }
+        slopeInput.addEventListener('input', calculate_input);
+        interceptInput.addEventListener('input', calculate_input);
+    </script>
+</body>
+</html>
