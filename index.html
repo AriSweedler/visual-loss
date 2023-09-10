@@ -141,9 +141,9 @@
             // Draw the point in state space corresponding to where the mouse is in graph space
             // Get the total distance from each point to the line. Use all the globals
             const distance = handle_distance();
-            const max_loss = 1700;
+            const max_loss = 115000;
             let color = get_gradient_color(distance, 0, max_loss);
-            if (distance < 20) {
+            if (distance < 250) {
                 color = 'black';
             }
             statespaceContext.fillStyle = color;
@@ -223,7 +223,7 @@
             const dx = mouse_x - canvas.width / 2;
             const dy = mouse_y - dotY;
 
-            const color = getGradientColor(mouse_x, 0, canvas.width);
+            const color = get_gradient_color(mouse_x, 0, canvas.width);
             ctx.strokeStyle = color;
             ctx.beginPath();
             ctx.moveTo(canvas.width / 2, dotY);
