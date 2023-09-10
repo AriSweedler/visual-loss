@@ -102,7 +102,7 @@
 
 
         // Generate points for the graph and draw them
-        function generatePoints() {
+        function generate_my_points() {
             const my_points = [];
             for (let x = 0; x < 400; x += 50) {
                 const y_inv = x / 2;
@@ -119,7 +119,7 @@
             }
             return my_points;
         }
-        const my_points = generatePoints();
+        const my_points = generate_my_points();
 
         canvas.addEventListener('mousemove', (e) => {
             const x = e.clientX - canvas.getBoundingClientRect().left;
@@ -135,13 +135,13 @@
             interceptInput.value = y.toFixed(0);
 
             // Redraw the graph with updated values
-            paintLine(x, y);
+            paint_line(x, y);
 
             // Draw the point in state space corresponding to where the mouse is in graph space
             // Get the total distance from each point to the line. Use all the globals
             const distance = handle_distance();
             const max_loss = 1700;
-            let color = getGradientColor(distance, 0, max_loss);
+            let color = get_gradient_color(distance, 0, max_loss);
             if (distance < 20) {
                 color = 'black';
             }
@@ -161,14 +161,15 @@
             const distances = my_points.map(point => {
                 const [x, y] = point;
                 const line_y = point_on_line(x, m, b);
-                const dist = Math.abs(line_y - y);
-                return dist
+                const ordinary_squares = Math.abs(line_y - y) ** 2;
+                return ordinary_squares
             });
-            return distances.reduce((acc, curr) => acc + curr, 0);
+            const loss = distances.reduce((acc, curr) => acc + curr, 0);
+	    return loss
         }
 
         // Get a color based on a value between min and max (interpolate)
-        function getGradientColor(value, min = 0, max = 400) {
+        function get_gradient_color(value, min = 0, max = 400) {
             // Ensure the input value stays within the range [min, max]
             const clampedValue = Math.max(min, Math.min(max, value));
 
@@ -190,7 +191,7 @@
         }
 
         // Function to paint the line
-        function paintLine(mouseX, mouseY) {
+        function paint_line(mouse_x, mouse_y) {
             const m = parseFloat(slopeInput.value);
             const b = parseFloat(interceptInput.value);
 
@@ -206,37 +207,37 @@
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            paintDot(ctx, mouseX, mouseY);
+            paint_dot(ctx, mouse_x, mouse_y);
         }
 
-        function paintDot(ctx, mouseX, mouseY) {
+        function paint_dot(ctx, mouse_x, mouse_y) {
             // Draw a yellow dot in the middle of the line
             ctx.fillStyle = 'yellow';
-            const dotY = mouseY;
+            const dotY = mouse_y;
             ctx.beginPath();
             ctx.arc(canvas.width / 2, dotY, 5, 0, Math.PI * 2);
             ctx.fill();
 
             // Draw a line from the yellow dot to the mouse cursor with changing color based on the x coordinate
-            const dx = mouseX - canvas.width / 2;
-            const dy = mouseY - dotY;
+            const dx = mouse_x - canvas.width / 2;
+            const dy = mouse_y - dotY;
 
-            const color = getGradientColor(mouseX, 0, canvas.width);
+            const color = getGradientColor(mouse_x, 0, canvas.width);
             ctx.strokeStyle = color;
             ctx.beginPath();
             ctx.moveTo(canvas.width / 2, dotY);
-            ctx.lineTo(mouseX, mouseY);
+            ctx.lineTo(mouse_x, mouse_y);
             ctx.stroke();
         }
 
         // Initial drawing
-        paintLine(canvas.width / 2, canvas.height / 2);
+        paint_line(canvas.width / 2, canvas.height / 2);
 
         // Redraw when inputs change
         function calculate_input() {
-            const mouseX = parseFloat(slopeInput.value) * canvas.width / 2 + canvas.width / 2;
-            const mouseY = (1 - parseFloat(interceptInput.value)) * canvas.height / 2 + canvas.height / 2;
-            paintLine(mouseX, mouseY);
+            const mouse_x = parseFloat(slopeInput.value) * canvas.width / 2 + canvas.width / 2;
+            const mouse_y = (1 - parseFloat(interceptInput.value)) * canvas.height / 2 + canvas.height / 2;
+            paint_line(mouse_x, mouse_y);
         }
         slopeInput.addEventListener('input', calculate_input);
         interceptInput.addEventListener('input', calculate_input);
